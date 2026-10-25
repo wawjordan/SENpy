@@ -101,7 +101,7 @@ def single_case_error_norms(run_dir,verbose=False):
                                 "DE_corrected_primitive_flagged",
                                 "DE_corrected_conserved",
                                 "DE_corrected_conserved_flagged",
-                              ], [] )
+                              ], {} )
   patterns =    { "-rec-err_primitive.dat"                : "Reconstruction_error",
                   "-te_ext.dat"                           : "TE_exact",
                   "-te_est.dat"                           : "TE_estimated",
