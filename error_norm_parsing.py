@@ -54,7 +54,7 @@ def save_dict_to_hdf5(dic, h5file_or_group):
 def refinement_error_norms(run_dir,subdir_pattern="*",verbose=False):
   error_norms = [] # initialize temporary list
   # append error norm dicts from each subdirectory
-  for subdir in sorted(Path(run_dir).glob(f"{subdir_pattern}")):
+  for subdir in sorted(Path(run_dir).glob(f"{subdir_pattern}/")):
     error_norms.append(single_case_error_norms(subdir,verbose=verbose))
   is_sorted = False
   keys = [key for key in error_norms[0]]
@@ -89,19 +89,21 @@ def refinement_error_norms(run_dir,subdir_pattern="*",verbose=False):
 
 def single_case_error_norms(run_dir,verbose=False):
   run_dir = Path(run_dir)
-  error_norms = dict.fromkeys( ["Reconstruction_error",
-                                "TE_exact",
-                                "TE_estimated",
-                                "TE_error",
-                                "DE_primal_primitive",
-                                "DE_primal_primitive_flagged",
-                                "DE_primal_conserved",
-                                "DE_primal_conserved_flagged",
-                                "DE_corrected_primitive",
-                                "DE_corrected_primitive_flagged",
-                                "DE_corrected_conserved",
-                                "DE_corrected_conserved_flagged",
-                              ], {} )
+  keys = ["Reconstruction_error",
+          "TE_exact",
+          "TE_estimated",
+          "TE_error",
+          "DE_primal_primitive",
+          "DE_primal_primitive_flagged",
+          "DE_primal_conserved",
+          "DE_primal_conserved_flagged",
+          "DE_corrected_primitive",
+          "DE_corrected_primitive_flagged",
+          "DE_corrected_conserved",
+          "DE_corrected_conserved_flagged",
+        ]
+  error_norm  = {key: [] for key in ["N","t","N_iterations","N_layers","E"]}
+  error_norms = {key: error_norm for key in keys}
   patterns =    { "-rec-err_primitive.dat"                : "Reconstruction_error",
                   "-te_ext.dat"                           : "TE_exact",
                   "-te_est.dat"                           : "TE_estimated",
@@ -135,7 +137,6 @@ def single_case_error_norms(run_dir,verbose=False):
       try:
         error_norms[patterns[first_match]] = read_err_norm_file_to_dict(file_path.resolve(),verbose=verbose)
       except:
-        error_norms[patterns[first_match]] = dict.fromkeys(["N","t","N_iterations","N_layers","E"],[])
         error_norms[patterns[first_match]]['E'] = np.zeros((0,0,0,0))
   return error_norms
   
