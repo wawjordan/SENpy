@@ -15,13 +15,186 @@ import numpy as np
 # find . -maxdepth 1 -mindepth 1 -type d -exec touch {}/filename.rst \;
 # find ./*/ -type f -name "*.nml" -delete
 
-def read_err_norm_file(file_name):
+
+def output_hdf5_dict(dic,filename):
+  import h5py
+  with h5py.File(Path(filename).resolve(), "w") as f:
+    save_dict_to_hdf5(dic, f)
+
+def save_dict_to_hdf5(dic, h5file_or_group):
+  """
+  Recursively saves a dictionary to an open h5py File or Group object.
+  """
+  for key, item in dic.items():
+    if isinstance(item, dict):
+      # Create a group for a nested dictionary
+      subgroup = h5file_or_group.create_group(key)
+      save_dict_to_hdf5(item, subgroup)
+    else:
+      # Ensure data is in a format h5py accepts (like a numpy array)
+      h5file_or_group.create_dataset(key, data=np.asarray(item))
+
+# def parametric_refinement_error_norms(run_dir,subdir_pattern1="*",subdir_pattern2="*"):
+#   error_norms = [] # initialize temporary list
+#   for subdir in sorted(Path(run_dir).glob(f"{subdir_pattern1}")):
+#     error_norms.append(refinement_error_norms(subdir,subdir_pattern=subdir_pattern2))
+#   # make a new dictionary, stacking all of the error norms for each error type
+#   DE = dict.fromkeys([key for key in error_norms[0]])
+#   DE["t"] = []
+#   for key in error_norms[0]: # note: this won't work if they are different sizes
+#     DE[key] = np.stack([d[key] for d in error_norms])
+#   breakpoint()
+#   for i in range(len(error_norms)):
+#     DE["t"].append( error_norms[i]["t"] )
+#     breakpoint()
+#   DE["N1"] = error_norms[0]["N1"]
+#   DE["N_layers"] = error_norms[0]["N_layers"]
+  
+
+def refinement_error_norms(run_dir,subdir_pattern="*",verbose=False):
+  error_norms = [] # initialize temporary list
+  # append error norm dicts from each subdirectory
+  for subdir in sorted(Path(run_dir).glob(f"{subdir_pattern}")):
+    error_norms.append(single_case_error_norms(subdir,verbose=verbose))
+  is_sorted = False
+  keys = [key for key in error_norms[0]]
+  special_key = keys[0]
+  for key in keys: # (hopefully) find a key that is fully populated across all grid levels
+    tmp = [item[key]["t"] for item in error_norms if (np.size(item.get(key,{}).get("t",{})) != 0)]
+    if len(tmp) == len(error_norms):
+      special_key = key
+      break
+      
+  for key in keys: # (hopefully) find a key that is fully populated across all grid levels
+    tmp = [item[key]["N"] for item in error_norms if (np.size(item.get(key,{}).get("N",{})) != 0)]
+    if len(tmp) == len(error_norms):
+      error_norms.sort(key = lambda d: d[key]["N"])
+      is_sorted = True
+      break
+  if not is_sorted:
+    raise ValueError("Could not find data set that matched across all subdirectories.")
+
+  # make a new dictionary, stacking all of the error norms for each error type
+  DE = dict.fromkeys([key for key in error_norms[0]])
+  for key in error_norms[0]:
+    DE[key] = np.stack([d[key]["E"] for d in error_norms])
+
+  DE["N1"] = np.array([d[special_key]["N"] for d in error_norms])
+  DE["N_iterations"] = np.array([d[special_key]["N_iterations"] for d in error_norms])
+  DE["N_layers"] = np.array([d[special_key]["N_layers"] for d in error_norms])
+  DE["t"] = [d[special_key]["t"] for d in error_norms]
+
+  return DE
+
+
+def single_case_error_norms(run_dir,verbose=False):
+  run_dir = Path(run_dir)
+  error_norms = dict.fromkeys( ["Reconstruction_error",
+                                "TE_exact",
+                                "TE_estimated",
+                                "TE_error",
+                                "DE_primal_primitive",
+                                "DE_primal_primitive_flagged",
+                                "DE_primal_conserved",
+                                "DE_primal_conserved_flagged",
+                                "DE_corrected_primitive",
+                                "DE_corrected_primitive_flagged",
+                                "DE_corrected_conserved",
+                                "DE_corrected_conserved_flagged",
+                              ], None )
+  patterns =    { "-rec-err_primitive.dat"                : "Reconstruction_error",
+                  "-te_ext.dat"                           : "TE_exact",
+                  "-te_est.dat"                           : "TE_estimated",
+                  "-te_err.dat"                           : "TE_error",
+                  "-de_primal_primitive_offset.dat"       : "DE_primal_primitive",
+                  "-de_primal_primitive.dat"              : "DE_primal_primitive",
+                  "-de_primal_primitive_1.dat"            : "DE_primal_primitive",
+                  "-de_primal_primitive_flagged.dat"      : "DE_primal_primitive_flagged",
+                  "-de_primal_conserved_offset.dat"       : "DE_primal_conserved",
+                  "-de_primal_conserved.dat"              : "DE_primal_conserved",
+                  "-de_primal_conserved_1.dat"            : "DE_primal_conserved",
+                  "-de_primal_conserved_flagged.dat"      : "DE_primal_conserved_flagged",
+                  "-de_corrected_primitive_ic_offset.dat" : "DE_corrected_primitive",
+                  "-de_corrected_primitive_ic.dat"        : "DE_corrected_primitive",
+                  "-de_corrected_primitive_offset.dat"    : "DE_corrected_primitive",
+                  "-de_corrected_primitive.dat"           : "DE_corrected_primitive",
+                  "-de_corrected_primitive_1.dat"         : "DE_corrected_primitive",                  
+                  "-de_corrected_primitive_flagged.dat"   : "DE_corrected_primitive_flagged",
+                  "-de_corrected_conserved_ic_offset.dat" : "DE_corrected_conserved",
+                  "-de_corrected_conserved_ic.dat"        : "DE_corrected_conserved",
+                  "-de_corrected_conserved_offset.dat"    : "DE_corrected_conserved",
+                  "-de_corrected_conserved.dat"           : "DE_corrected_conserved",
+                  "-de_corrected_conserved_1.dat"         : "DE_corrected_conserved",
+                  "-de_corrected_conserved_flagged.dat"   : "DE_corrected_conserved_flagged",
+                  }
+  file_list = [file_path for file_path in run_dir.glob("*.dat")
+                     if file_path.name.endswith(tuple(patterns))]
+  for file_path in file_list:
+    first_match = next((k for k in patterns if file_path.name.endswith(k)), None)
+    if not None:
+      try:
+        error_norms[patterns[first_match]] = read_err_norm_file_to_dict(file_path.resolve(),verbose=verbose)
+      except:
+        error_norms[patterns[first_match]] = dict.fromkeys(["N","t","N_iterations","N_layers","E"],[])
+        error_norms[patterns[first_match]]['E'] = np.zeros((0,0,0,0))
+  return error_norms
+  
+
+
+def read_err_norm_folder(folder, pattern, dim, r_fac,verbose=False):
+  DE = []
+  for file_name in sorted(Path(folder).glob(f"**/{pattern}")):
+      dat, N, t, N_layers, N_iterations = read_err_norm_file(file_name,verbose=verbose)
+      DE.append({
+          "N1": N,
+          "N2": float(N) ** (1 / dim),
+          "t": t,
+          "N_iterations": N_iterations,
+          "N_layers": N_layers,
+          "E": dat,
+      })
+  DE.sort(key=lambda d: d["N1"]) # sort list of dicts by key "N1" ascending
+  DE = calc_OOA(DE, r_fac)
+  return DE
+
+def calc_OOA(DE, r_fac):
+  DE[0]["OOA"] = np.full_like(DE[0]["E"], np.nan)   # (analagous to matlab nan*DE(1).E)
+  with np.errstate(invalid='ignore', divide='ignore'): # suppress NaN warnings for this calc
+    for i in range(1, len(DE)):
+        DE[i]["OOA"] = np.log( DE[i-1]["E"] / DE[i]["E"] ) / np.log(r_fac)
+        DE[i]["OOA"] = np.nan_to_num( DE[i]["OOA"], nan=np.nan, posinf=np.nan, neginf=np.nan)
+  return DE
+
+def to_columnar(DE):
+    # re-arrange to be a dict of lists/arrays
+    return {
+        "N1":           np.array([d["N1"] for d in DE]),
+        "N2":           np.array([d["N2"] for d in DE]),
+        "t":            [d["t"] for d in DE],
+        "N_iterations": np.array([d["N_iterations"] for d in DE]),
+        "N_layers":     np.array([d["N_layers"] for d in DE]),
+        "E":            np.stack([d["E"] for d in DE]),
+        "OOA":          np.stack([d["OOA"] for d in DE]),
+    }
+
+def read_err_norm_file_to_dict(file_name,verbose=False):
+  dat, N, t, N_layers, N_iterations = read_err_norm_file(file_name,verbose=verbose)
+  return {
+          "N": N,
+          "t": t,
+          "N_iterations": N_iterations,
+          "N_layers": N_layers,
+          "E": dat,
+         }
+
+def read_err_norm_file(file_name,verbose=False):
   file_name = Path(file_name).resolve()
   with open(file_name, "r") as file:
     text_lines = file.read().splitlines()
   for i,text_line in enumerate(text_lines):
     text_lines[i] = text_line.split()
-
+  if verbose:
+    print(f"Reading {file_name}")
   if len(text_lines[0]) != 1: # No offsets, no iterative correction
     dat, N, t, N_iterations, N_layers = read_err_norms_basic(text_lines)
   elif len(text_lines[1]) != 1: # offsets, no iterative correction
@@ -118,80 +291,3 @@ def read_err_norms_ic_offset(text_lines):
         if cnt>len(text_lines): break
         dat[:,i,j,k] = np.array([float(item) for item in text_lines[cnt]]) # eqns
   return dat, N, t, N_iterations, N_layers
-
-
-
-def collect_norm_files(run_dir,verbose=False):
-  run_dir = Path(run_dir)
-  # ".dat" files that aren't formatted for tecplot
-  file_patterns = ( "-rec-err_primitive.dat",
-                    "-te_ext.dat",
-                    "-te_est.dat",
-                    "-te_err.dat",
-                    "-de_primal_primitive_1.dat",
-                    "-de_primal_primitive.dat",
-                    "-de_primal_primitive_offset.dat",
-                    "-de_primal_conserved_1.dat",
-                    "-de_primal_conserved.dat",
-                    "-de_primal_conserved_offset.dat",
-                    "-de_corrected_primitive_1.dat",
-                    "-de_corrected_primitive.dat",
-                    "-de_corrected_primitive_offset.dat",
-                    "-de_corrected_primitive_ic.dat",
-                    "-de_corrected_primitive_ic_offset.dat",
-                    "-de_corrected_conserved_1.dat",
-                    "-de_corrected_conserved.dat",
-                    "-de_primal_conserved_offset.dat",
-                    "-de_corrected_conserved_ic.dat",
-                    "-de_corrected_conserved_ic_offset.dat",
-                    "-press_force.dat",
-                    "-press_force_curv.dat",
-                    "-press_force_rec.dat",
-                    "-press_force_curv_rec.dat",
-                    "-visc_force.dat",
-                    "-visc_force_curv.dat",
-                    "-visc_force_rec.dat",
-                    "-visc_force_curv_rec.dat",
-                    "-de_primal_primitive_flagged.dat",
-                    "-de_primal_conserved_flagged.dat",
-                    "-de_corrected_primitive_flagged.dat",
-                    "-de_corrected_conserved_flagged.dat",
-                  )
-  dat_file_list = [file_path for file_path in run_dir.glob("*.dat")
-                   if file_path.name.endswith(file_patterns)]
-
-  # create log file to hold output from tec360 batch.log output files
-  log_file = run_dir / "tec360_batch.log"
-  tmp_log_file = run_dir / "batch.log"
-  with open(log_file, "w", encoding="utf-8") as file:
-    file.close()
-
-  # loop over the dat files
-  # for file_path in dat_file_list:
-
-
-
-def read_err_norm_folder(folder, pattern, dim, r_fac):
-  DE = []
-  for file_name in sorted(Path(folder).glob(f"**/{pattern}")):
-      dat, N, t, N_layers, N_iterations = read_err_norm_file(file_name)
-      DE.append({
-          "N1": N,
-          "N2": float(N) ** (1 / dim),
-          "t": t,
-          "N_iterations": N_iterations,
-          "N_layers": N_layers,
-          "E": dat,
-      })
-  DE.sort(key=lambda d: d["N1"])
-  DE = calc_OOA(DE, r_fac)
-  return DE
-
-def calc_OOA(DE, r_fac):
-  N_grids = len(DE)
-  DE[0]["OOA"] = np.full_like(DE[0]["E"], np.nan)   # nan*DE(1).E
-  for i in range(1, N_grids):
-      DE[i]["OOA"] = np.where( DE[i]["E"] > 0,
-                               np.log(Etmp) / np.log(r_fac),
-                               np.nan)
-  return DE
