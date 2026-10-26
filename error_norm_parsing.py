@@ -35,13 +35,13 @@ def save_dict_to_hdf5(dic, h5file_or_group):
       # Ensure data is in a format h5py accepts (like a numpy array)
       h5file_or_group.create_dataset(key, data=np.asarray(item))
 
-def parametric_refinement_error_norms(run_dir,subdir_pattern1="*",subdir_pattern2="*"):
+def parametric_refinement_error_norms(run_dir,subdir_pattern1="*",subdir_pattern2="*",verbose=True):
   error_norms = [] # initialize temporary list
   foldernames = []
   for i, subdir in enumerate(sorted(Path(run_dir).glob(f"{subdir_pattern1}"))):
     print(f"{subdir}")
     foldernames.append( f"{subdir.parent.name}:{subdir.name}")
-    error_norms.append(refinement_error_norms(subdir,subdir_pattern=subdir_pattern2))
+    error_norms.append(refinement_error_norms(subdir,subdir_pattern=subdir_pattern2,verbose=verbose))
   # make a new dictionary, stacking all of the error norms for each error type
   DE = dict.fromkeys([key for key in error_norms[0]])
   DE["N1"] = error_norms[0]["N1"]
