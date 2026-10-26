@@ -35,21 +35,38 @@ def save_dict_to_hdf5(dic, h5file_or_group):
       # Ensure data is in a format h5py accepts (like a numpy array)
       h5file_or_group.create_dataset(key, data=np.asarray(item))
 
-# def parametric_refinement_error_norms(run_dir,subdir_pattern1="*",subdir_pattern2="*"):
-#   error_norms = [] # initialize temporary list
-#   for subdir in sorted(Path(run_dir).glob(f"{subdir_pattern1}")):
-#     error_norms.append(refinement_error_norms(subdir,subdir_pattern=subdir_pattern2))
-#   # make a new dictionary, stacking all of the error norms for each error type
-#   DE = dict.fromkeys([key for key in error_norms[0]])
-#   DE["t"] = []
-#   for key in error_norms[0]: # note: this won't work if they are different sizes
-#     DE[key] = np.stack([d[key] for d in error_norms])
-#   breakpoint()
-#   for i in range(len(error_norms)):
-#     DE["t"].append( error_norms[i]["t"] )
-#     breakpoint()
-#   DE["N1"] = error_norms[0]["N1"]
-#   DE["N_layers"] = error_norms[0]["N_layers"]
+def parametric_refinement_error_norms(run_dir,subdir_pattern1="*",subdir_pattern2="*"):
+  error_norms = [] # initialize temporary list
+  foldernames = []
+  for i, subdir in enumerate(sorted(Path(run_dir).glob(f"{subdir_pattern1}"))):
+    print(f"{subdir}")
+    foldernames.append( f"{subdir.parent.name}:{subdir.name}")
+    error_norms.append(refinement_error_norms(subdir,subdir_pattern=subdir_pattern2))
+  # make a new dictionary, stacking all of the error norms for each error type
+  DE = dict.fromkeys([key for key in error_norms[0]])
+  DE["N1"] = error_norms[0]["N1"]
+  DE["N_layers"] = {key : None for key in foldernames}
+  DE["N_iterations"] = {key : None for key in foldernames}
+  DE["t"] = {key : None for key in foldernames}
+  for i in range(len(error_norms)):
+    DE["t"][foldernames[i]] = error_norms[i]["t"]
+    DE["N_layers"][foldernames[i]] = error_norms[i]["N_layers"]
+    DE["N_iterations"][foldernames[i]] = error_norms[i]["N_iterations"]
+  for key in error_norms[0]: # note: this won't work if they are different sizes
+    if key=="t": continue
+    if key=="N1": continue
+    if key=="N_layers": continue
+    if key=="N_iterations": continue
+    arrays = [d[key] for d in error_norms]
+    max_shape = np.max([arr.shape for arr in arrays], axis=0)
+    padded_arrays = []
+    for arr in arrays:
+      pad_width = [(0, max_shape[i] - arr.shape[i]) for i in range(len(max_shape))]
+      padded_arr = np.pad(arr, pad_width, mode='constant', constant_values=np.NaN)
+      padded_arrays.append(padded_arr)
+    DE[key] = np.stack(padded_arrays,axis=0)
+  return DE
+  
 
 
 def refinement_error_norms(run_dir,subdir_pattern="*",verbose=False):
@@ -330,3 +347,6 @@ def read_err_norms_ic_offset(text_lines):
 # if __name__ == "__main__":
 #   DE = refinement_error_norms('/mnt/c/Users/wajordan/Desktop/CASES/COPY_parabola_test_NEW_AR_1_BD_div_8_P2_CBC=F_NO_BC_2026-10-14_19.21.19',verbose=False)
 #   output_hdf5_dict(DE,'test.h5')
+if __name__ == "__main__":
+  DE = parametric_refinement_error_norms('/mnt/c/Users/wajordan/Desktop/CASES/',subdir_pattern1="*ms1_test_09172026_2026-09-17*",subdir_pattern2="*")
+  output_hdf5_dict(DE,'test.h5')
