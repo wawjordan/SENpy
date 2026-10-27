@@ -146,7 +146,7 @@ def single_case_error_norms(run_dir,verbose=False):
           "DE_corrected_conserved",
           "DE_corrected_conserved_flagged",
         ]
-  filepatterns = { "-rec-err_primitive.dat",
+  filepatterns = [ "-rec-err_primitive.dat",
                     "-te_ext.dat",
                     "-te_est.dat",
                     "-te_err.dat",
@@ -170,7 +170,7 @@ def single_case_error_norms(run_dir,verbose=False):
                     "-de_corrected_conserved.dat",
                     "-de_corrected_conserved_1.dat",
                     "-de_corrected_conserved_flagged.dat",
-                    }
+                    ]
   filefromkey = { "Reconstruction_error"           : ["-rec-err_primitive.dat"],
                   "TE_exact"                       : ["-te_ext.dat"],
                   "TE_estimated"                   : ["-te_est.dat"],
@@ -342,18 +342,20 @@ def parametric_refinement_forces(run_dir,subdir_pattern1="*",subdir_pattern2="*"
     foldernames.append( f"{subdir.parent.name}:{subdir.name}")
     Ftmp.append(refinement_forces(subdir,subdir_pattern=subdir_pattern2,verbose=verbose))
   # make a new dictionary, stacking all of the error norms for each error type
-  F = dict.fromkeys([key for key in Ftmp[0]])
+  F = {key: {blk: {var: [] for var in Ftmp[0][key][blk]} for blk in Ftmp[0][key]} for key in Ftmp[0] if key!="N1"}
   F["N1"] = Ftmp[0]["N1"]
   for key in Ftmp[0]: # note: this won't work if they are different sizes
     if key=="N1": continue
-    arrays = [d[key] for d in Ftmp]
-    max_shape = np.max([arr.shape for arr in arrays], axis=0)
-    padded_arrays = []
-    for arr in arrays:
-      pad_width = [(0, max_shape[i] - arr.shape[i]) for i in range(len(max_shape))]
-      padded_arr = np.pad(arr, pad_width, mode='constant', constant_values=np.NaN)
-      padded_arrays.append(padded_arr)
-    F[key] = np.stack(padded_arrays,axis=0)
+    for blk in Ftmp[0][key]:
+      for var in Ftmp[0][key][blk]:
+        arrays = [d[key][blk][var] for d in Ftmp]
+        max_shape = np.max([arr.shape for arr in arrays], axis=0)
+        padded_arrays = []
+        for arr in arrays:
+          pad_width = [(0, max_shape[i] - arr.shape[i]) for i in range(len(max_shape))]
+          padded_arr = np.pad(arr, pad_width, mode='constant', constant_values=np.NaN)
+          padded_arrays.append(padded_arr)
+        F[key][blk][var] = np.stack(padded_arrays,axis=0)
   return F
 
 
@@ -450,12 +452,60 @@ def read_P3D_header(filename):
           }
 
 def single_case_forces(run_dir,verbose=False):
+  keys = ["Exact_forces",
+          "Exact_reconstructed_forces",
+          "Primal_forces",
+          "Primal_reconstructed_forces",
+          "Corrected_forces",
+          "Corrected_reconstructed_forces",
+        ]
+  filepatterns = [ "-exact-force_history.dat",
+                   "-exact_rec-force_history.dat",
+                   "-primal-force_history.dat",
+                   "-primal_rec-force_history.dat",
+                   "-ete-force_history.dat",
+                   "-ete_rec-force_history.dat",
+                   "-ic-force_history.dat",
+                   "-ic_rec-force_history.dat",
+                  ]
+  filefromkey = { "Exact_forces"                   : ["-exact-force_history.dat",],
+                  "Exact_reconstructed_forces"     : ["-exact_rec-force_history.dat",],
+                  "Primal_forces"                  : ["-primal-force_history.dat",],
+                  "Primal_reconstructed_forces"    : ["-primal_rec-force_history.dat",],
+                  "Corrected_forces"               : ["-ic-force_history.dat",
+                                                      "-ete-force_history.dat",],
+                  "Corrected_reconstructed_forces" : ["-ic-force_history.dat",
+                                                      "-ic_rec-force_history.dat",],
+                } 
   run_dir = Path(run_dir)
-  file_list = [file_path for file_path in run_dir.glob("*-force_history.dat")]
-  F = {}
-  for file_path in file_list:
-    key = file_path.name.removesuffix("*-force_history.dat")
-    F[key] = read_force_history_file(file_path,verbose=verbose)
+
+  file_list = [file_path for file_path in run_dir.glob("*-force_history.dat")
+               if file_path.name.endswith(tuple(filepatterns))]
+  
+  F = {key: None for key in keys}
+  for key in keys:
+    for pat in filefromkey[key]: # try each option in sequence until one (hopefully) works
+      first_match = next((f for f in file_list if f.name.endswith(pat)), None)
+      if first_match is not None:
+        try:
+          F[key] = read_force_history_file(first_match.resolve(),verbose=verbose)
+          break
+        except:
+            warnings.warn(f"Error reading from {first_match}")
+  # initialize missing entries
+  key1 = []
+  for key in keys:
+    if F[key] is not None: # find non-empty entry
+      key1 = key
+      break
+  if len(key1)==0:
+    raise RuntimeError("No data was read in.")
+  for key in keys:
+    if F[key] is None:
+      F[key] = F[key1] # populate empty entry
+      for zone in F[key]:
+        for var in F[key][zone]: # initialize to nans
+          F[key][zone][var] = np.full_like(F[key1][zone][var], np.nan)
   return F
 
 def read_force_history_file(file_name,verbose=False):
@@ -522,7 +572,11 @@ if __name__ == "__main__":
   # checking with h5diff
   # Z2 = read_hdf5_dict('test_forces.h5')
   # output_hdf5_dict(Z2,'test_forces2.h5')
-  F = parametric_refinement_forces('/mnt/c/Users/wajordan/Desktop/CASES/',subdir_pattern1="*ms1_test_09172026_2026-09-17*",subdir_pattern2="*")
-  output_hdf5_dict(F,'test_forces.h5')
+  # F = parametric_refinement_forces('/mnt/c/Users/wajordan/Desktop/CASES/',subdir_pattern1="*ms1_test_09172026_2026-09-17*",subdir_pattern2="*")
+  # output_hdf5_dict(F,'test_forces.h5')
+  # Z = single_case_forces('/mnt/c/Users/wajordan/Desktop/CASES/ms1_test_09172026_2026-09-17_17.33.51/_ms1_0129x0033',verbose=True)
+  # Z = refinement_forces('/mnt/c/Users/wajordan/Desktop/CASES/ms1_test_09172026_2026-09-17_17.33.51',verbose=True)
+  Z = parametric_refinement_forces('/mnt/c/Users/wajordan/Desktop/CASES/',subdir_pattern1="*ms1_test_09172026_2026-09-17*",subdir_pattern2="*")
+  output_hdf5_dict(Z,'test_forces.h5')
   
   
