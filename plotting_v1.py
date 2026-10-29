@@ -11,6 +11,7 @@ import itertools
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 def read_hdf5_dict(filename):
   import h5py
@@ -115,22 +116,31 @@ def preplot_from_param_refine_DE_dict(DE_dict,DE_key=None,cases=None, levels=Non
 
   return DE_key_, cases_, levels_, vars_, norms_, iters_, layers_
 
-def collect_legend_info( DE_key, cases, vars, norms, iters, layers ):
-  prim_var_text = { 0 : "$\rho$",
-                      1 : "$u$",
-                      2 : "$v$",
-                      3 : "$w$",
-                      4 : "$P$",
-                      5 : "$\tilde{\nu}$",
+def collect_legend_info( DE_key, cases, vars, norms, iters, layers, mapping_dict ):
+  # mapping_dict : provides a map for [colors/lines/markers] to data
+  # Example:
+  # mapping_dict  = { "group" : "color",
+  #                   "case"  : "marker",
+  #                   "var"   : "null",
+  #                   "norm"  : "line",
+  #                   "layer" : "null",
+  #                   "iter"  : "null",
+  #                 }
+  prim_var_text = { 0 : r"$\rho$",
+                    1 : r"$u$",
+                    2 : r"$v$",
+                    3 : r"$w$",
+                    4 : r"$P$",
+                    5 : r"$\tilde{\nu}$",
                     }
-  cons_var_text = { 0 : "$\rho$",
-                    1 : "$\rho u$",
-                    2 : "$\rho v$",
-                    3 : "$\rho w$",
-                    4 : "$\rho e$",
-                    5 : "$\rho \tilde{\nu}$",
+  cons_var_text = { 0 : r"$\rho$",
+                    1 : r"$\rho u$",
+                    2 : r"$\rho v$",
+                    3 : r"$\rho w$",
+                    4 : r"$\rho e$",
+                    5 : r"$\rho \tilde{\nu}$",
                   }
-  type_info = {"Reconstruction_error"           : ["rec. error",prim_var_text],
+  type_info = { "Reconstruction_error"           : ["rec. error",prim_var_text],
                 "TE_exact"                       : ["TE (exact)",cons_var_text],
                 "TE_estimated"                   : ["TE (est.)",cons_var_text],
                 "TE_error"                       : ["TE (error)",cons_var_text],
@@ -155,64 +165,40 @@ def collect_legend_info( DE_key, cases, vars, norms, iters, layers ):
     if a.size > 2:
       alphas[j][1:-2] = 0.5
 
-  type_map = lines
-  cycle_dict = { "color"  : colors,
-                 "line"   : lines,
-                 "marker" : markers,
-                 "null"   : [None]
+  cycle_dict = { "color"     : colors,
+                 "linestyle" : lines,
+                 "marker"    : markers,
+                 "null"      : [None]
               }
-  dim_dict  = { "group" : "color",
-                "case"  : "marker",
-                "var"   : "null",
-                "norm"  : "line",
-                "layer" : "null",
-                "iter"  : "null",
-              }
+
+  # invert the mapping_dict
+  # this takes a line style and outputs a the dimension it maps to
+  style_dict = { key: [None] for key in cycle_dict }
+  for key, value in mapping_dict.items():
+    style_dict[value] = key
+
+  # copy mapping_dict to be container for the cycle components
+  map_dict = mapping_dict.copy()
   
-  # labels    = []
-  # cyc1 = itertools.cycle(cycle_dict[dim_dict["group"]])
-  # for j,key in enumerate(DE_key): # group loop
-  #   c1 = next(cyc1)
-  #   cyc2 = itertools.cycle(cycle_dict[dim_dict["case"]])
-  #   for case_num, _ in enumerate(cases): # case loop
-  #     c2 = next(cyc2)
-  #     cyc3 = itertools.cycle(cycle_dict[dim_dict["var"]])
-  #     for var in vars: # var loop
-  #       c3 = next(cyc3)
-  #       cyc4 = itertools.cycle(cycle_dict[dim_dict["norm"]])
-  #       for norm in norms: # norm loop
-  #         c4 = next(cyc4)
-  #         cyc5 = itertools.cycle(cycle_dict[dim_dict["iter"]])
-  #         for i, iter in enumerate(iters[j]): # iter loop
-  #           c5 = next(cyc5)
-  #           cyc6 = itertools.cycle(cycle_dict[dim_dict["layer"]])
-  #           for layer in layers: # layer loop
-  #             c6 = next(cyc6)
-  #             labels.append({ "key_name"   : key,
-  #                             "case_num"   : case_num,
-  #                             "type_name"  : type_info[key][0],
-  #                             "var_name"   : type_info[key][1][var],
-  #                             "norm_name"  : norm_text[norm],
-  #                             "iteration"  : iter,
-  #                             "layer_num"  : layer,
-  #                             "color"      : color,
-  #                             "marker"     : marker,
-  #                             "line_style" : line,
-  #                             "line_alpha" : alphas[j][i]
-  #                           } )
   labels    = []
-  line_cyle = itertools.cycle(lines)
+  cyc1 = itertools.cycle(cycle_dict[mapping_dict["group"]])
   for j,key in enumerate(DE_key): # group loop
-    line = next(line_cyle)
-    marker_cycle = itertools.cycle(markers[0:min(len(cases),len(markers))])
+    map_dict["group"] = next(cyc1)
+    cyc2 = itertools.cycle(cycle_dict[mapping_dict["case"]])
     for case_num, _ in enumerate(cases): # case loop
-      marker = next(marker_cycle)
-      color_cycle  = itertools.cycle(colors[0:len(vars)])
+      map_dict["case"] = next(cyc2)
+      cyc3 = itertools.cycle(cycle_dict[mapping_dict["var"]])
       for var in vars: # var loop
-        color  = next(color_cycle)
+        map_dict["var"] = next(cyc3)
+        cyc4 = itertools.cycle(cycle_dict[mapping_dict["norm"]])
         for norm in norms: # norm loop
+          map_dict["norm"] = next(cyc4)
+          cyc5 = itertools.cycle(cycle_dict[mapping_dict["iter"]])
           for i, iter in enumerate(iters[j]): # iter loop
+            map_dict["iter"] = next(cyc5)
+            cyc6 = itertools.cycle(cycle_dict[mapping_dict["layer"]])
             for layer in layers: # layer loop
+              map_dict["layer"] = next(cyc6)
               labels.append({ "key_name"   : key,
                               "case_num"   : case_num,
                               "type_name"  : type_info[key][0],
@@ -220,15 +206,45 @@ def collect_legend_info( DE_key, cases, vars, norms, iters, layers ):
                               "norm_name"  : norm_text[norm],
                               "iteration"  : iter,
                               "layer_num"  : layer,
-                              "color"      : color,
-                              "marker"     : marker,
-                              "line_style" : line,
+                              "color"      : map_dict[style_dict["color"]],
+                              "marker"     : map_dict[style_dict["marker"]],
+                              "line_style" : map_dict[style_dict["linestyle"]],
                               "line_alpha" : alphas[j][i]
                             } )
-  return labels
+  lbls = []
+  if mapping_dict["group"] != "null":
+    cyc1 = itertools.cycle(cycle_dict[mapping_dict["group"]])
+    for j,key in enumerate(DE_key): # group loop
+      lbls.append({type_info[key][0] : {mapping_dict["group"]:next(cyc1)} })
+  if mapping_dict["case"] != "null":
+    cyc2 = itertools.cycle(cycle_dict[mapping_dict["case"]])
+    for case_num in cases: # case loop
+      lbls.append({f"case {case_num}" : {mapping_dict["case"]:next(cyc2)} })
+  if mapping_dict["var"] !="null":
+    unique_vars = list(dict.fromkeys(d["var_name"] for d in labels if "var_name" in d))
+    cyc3 = itertools.cycle(cycle_dict[mapping_dict["var"]])
+    for i, var in enumerate(vars): # var loop
+      lbls.append({unique_vars[i] : {mapping_dict["var"]:next(cyc3)} })
+  if mapping_dict["norm"] !="null":
+    cyc4 = itertools.cycle(cycle_dict[mapping_dict["norm"]])
+    for norm in norms: # norm loop
+      lbls.append({norm_text[norm] : {mapping_dict["norm"]:next(cyc4)} })
+  if mapping_dict["iter"] !="null":
+    cyc5 = itertools.cycle(cycle_dict[mapping_dict["iter"]])
+    for i, iter in enumerate(iters[j]): # iter loop
+      if iter==-1:
+        lbls.append({"last iter" : {mapping_dict["iter"]:next(cyc5)} })
+      else:
+        lbls.append({f"iter {iter}" : {mapping_dict["iter"]:next(cyc5)} })
+  if mapping_dict["layer"] !="null":
+    cyc6 = itertools.cycle(cycle_dict[mapping_dict["layer"]])
+    for layer in layers: # layer loop
+      lbls.append({f"layer {layer}" : {mapping_dict["layer"]:next(cyc6)} })
+  return labels, lbls
 
-def plot_ERR_from_param_refine_dict(DE_dict,DE_key=None,r=2,ooa=False,ndim=None,cases=None, levels=None, vars=0,norms=0,iters=0,layers=0,ax=None,**kwargs):
+def plot_ERR_from_param_refine_dict(DE_dict,mapping_dict,DE_key=None,r=2,ooa=False,ndim=None,cases=None, levels=None, vars=0,norms=0,iters=0,layers=0,ax=None,**kwargs):
   # DE_dict: dictionary from the function 'parametric_refinement_error_norms'
+  # mapping_dict: dictionary that specifies what linestyle element applies to which variables
   # DE_key: which field in DE_dict will be plotted (defaults to 'DE_primal_primitive')
   # ndim: number of spatial dimensions for the simulation
   # cases: which cases to plot (default to all)
@@ -242,8 +258,7 @@ def plot_ERR_from_param_refine_dict(DE_dict,DE_key=None,r=2,ooa=False,ndim=None,
   # ax: axes object
   DE_key_, cases_, levels_, vars_, norms_, iters_, layers_ = preplot_from_param_refine_DE_dict( 
                              DE_dict,DE_key=DE_key,cases=cases, levels=levels, vars=vars,norms=norms,iters=iters,layers=layers )
-  labels = collect_legend_info( DE_key_, cases_, vars_, norms_, iters_, layers_ )
-  # labels_ = find_unique_subsets(labels)
+  labels, lbls = collect_legend_info( DE_key_, cases_, vars_, norms_, iters_, layers_, mapping_dict )
   DE = [np.array(DE_dict[key]) for key in DE_key_]
   N  = np.array(DE_dict['N1'])
   cnt = -1
@@ -275,8 +290,32 @@ def plot_ERR_from_param_refine_dict(DE_dict,DE_key=None,r=2,ooa=False,ndim=None,
                                           linestyle=labels[cnt]["line_style"], 
                                           alpha=labels[cnt]["line_alpha"],
                                           **kwargs )
+  if len(norms)==1:
+      ax.text(0.05, 0.95, labels[0]["norm_name"], transform=ax.transAxes, fontsize=12,
+                                                  verticalalignment='top')
+  
+  for lbl in lbls:
+    for key, value in lbl.items():
+      if len(norms)==1 and 'Norm' in key:
+        continue
+      if "color" in value:
+        ax.plot( np.nan, np.nan, label=key, **value, **kwargs)
+      else:
+        ax.plot( np.nan, np.nan, color="black", label=key, **value, **kwargs)
   ax.set_xscale('log')
-  if not ooa:
+  ax.set_axisbelow(True)
+  ax.grid(True, which='both', axis='both')
+  ax.grid(which='major', linestyle='-', linewidth=0.8, color='black')
+  ax.grid(which='minor', linestyle=':', linewidth=0.5, color='gray')
+  if ndim is not None:
+    x_label = r"$(n_{cells})^{1/" + f"{ndim}" + r"}$"
+    ax.set_xlabel(fr"{x_label}")
+  else:
+    ax.xlabel(r"n_{cells}")
+  if ooa:
+    ax.set_ylabel('Observed Order of Accuracy')
+  else:
+    ax.set_ylabel('Error Norm')
     ax.set_yscale('log')
   return ax, labels
 
@@ -296,19 +335,36 @@ def find_unique_subsets(data_list):
 if __name__ == "__main__":
   filename ='/mnt/c/Users/Will/Downloads/test.h5'
   DE_dict = read_hdf5_dict(filename)
-  DE_key = ['DE_primal_primitive','DE_corrected_primitive']
-  cases  = 4 #[i for i in range(5)]
-  norms  = [0,1,2]
-  iters  = [[0],[0,-1]]
+  DE_key = ['DE_corrected_primitive','DE_corrected_primitive']
+  cases  = [0,8] #[i for i in range(8)]
+  vars   = [0,1]
+  norms  = [0]
+  iters  = [[0],[200]]
   ndim   = 2
   markersize = 8
   fillstyle='none'
+  # mapping_dict  = { "group" : "color",
+  #                   "case"  : "null",
+  #                   "var"   : "null",
+  #                   "norm"  : "linestyle",
+  #                   "layer" : "null",
+  #                   "iter"  : "marker",
+  #                 }
+  mapping_dict  = { "group" : "null",
+                    "case"  : "marker",
+                    "var"   : "color",
+                    "norm"  : "linestyle",
+                    "layer" : "null",
+                    "iter"  : "null",
+                    }
   fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(7.5, 5.5))
 
   for i,ooa in enumerate([False,True]):
-    axs[i], labels = plot_ERR_from_param_refine_dict( DE_dict, 
+    axs[i], labels = plot_ERR_from_param_refine_dict( DE_dict,
+                                              mapping_dict,
                                               DE_key=DE_key,
                                               cases=cases,
+                                              vars=vars,
                                               norms=norms,
                                               iters=iters,
                                               ndim=ndim,
@@ -319,8 +375,19 @@ if __name__ == "__main__":
   axs[0].set_xlim(10,1000)
   axs[1].set_xlim(10,1000)
 
-  axs[0].set_ylim(10.**np.array([-11,-2]))
-  axs[1].set_ylim(0,6)
-  # ax.legend(loc='upper right')
+  start_exp = -11
+  end_exp   = -2
+  start_order = 0
+  end_order   = 6
+  ylimits = 10.**np.array([start_exp,end_exp])
+  axs[0].set_ylim(ylimits)
+  axs[0].yaxis.set_minor_formatter(ticker.NullFormatter())
+  axs[0].yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=np.linspace(0.,1.,11), numticks=1000))
+  axs[0].yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=(1.,), numticks=1000))
+
+  axs[1].set_ylim(start_order,end_order)
+  axs[1].yaxis.set_minor_formatter(ticker.NullFormatter())
+  axs[1].set_yticks(np.linspace(start_order,end_order,2*(end_order-start_order)+1), minor=True)
+  axs[1].legend(ncols=2,loc='lower center',framealpha=1.0)
   plt.show(block=False)
   dumb = 1
