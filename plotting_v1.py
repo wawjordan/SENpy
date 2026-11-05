@@ -333,13 +333,19 @@ def find_unique_subsets(data_list):
     return result
 
 if __name__ == "__main__":
-  filename ='/mnt/c/Users/Will/Downloads/test.h5'
+  filename ='/mnt/c/Users/wajordan/Downloads/test.h5'
   DE_dict = read_hdf5_dict(filename)
-  DE_key = ['DE_corrected_primitive','DE_corrected_primitive']
-  cases  = [0,8] #[i for i in range(8)]
-  vars   = [0,1]
-  norms  = [0]
-  iters  = [[0],[200]]
+  DE_key = ['DE_primal_primitive','DE_corrected_primitive']
+  # DE_key = ['DE_corrected_primitive']
+  # cases  = [1,5,9,13]
+  # cases  = [3,7,11,15]
+  # cases  = [0,4,8]
+  # cases  = [0,2,4,6] #[i for i in range(4)]
+  cases  = [0,2,4]
+  vars   = [0] #[0,1,2,4]
+  norms  = [1]
+  iters  = [[0],[0,10,200]]
+  # iters  = [[0],[200]]
   ndim   = 2
   markersize = 8
   fillstyle='none'
@@ -350,12 +356,12 @@ if __name__ == "__main__":
   #                   "layer" : "null",
   #                   "iter"  : "marker",
   #                 }
-  mapping_dict  = { "group" : "null",
+  mapping_dict  = { "group" : "color",
                     "case"  : "marker",
-                    "var"   : "color",
-                    "norm"  : "linestyle",
+                    "var"   : "null",
+                    "norm"  : "null",
                     "layer" : "null",
-                    "iter"  : "null",
+                    "iter"  : "linestyle",
                     }
   fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(7.5, 5.5))
 
