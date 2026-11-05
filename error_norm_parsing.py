@@ -7,7 +7,7 @@ import zipfile
 import warnings
 import pdb
 import re
-from math import prod
+from copy import deepcopy
 
 # third party imports
 
@@ -334,6 +334,58 @@ def read_err_norms_ic_offset(text_lines):
         dat[:,i,j,k] = np.array([float(item) for item in text_lines[cnt]]) # eqns
   return dat, N, t, N_iterations, N_layers
 
+def parametric_refinement_force_errors( Fin,
+                                        Cx=None, Cy=None, Cz=None,
+                                        Cx_p=None, Cy_p=None, Cz_p=None,
+                                        Cx_v=None, Cy_v=None, Cz_v=None, 
+                                        Axial_imin=None, Axial_imax=None,
+                                        Axial_jmin=None, Axial_jmax=None,
+                                        Axial_kmin=None, Axial_kmax=None,
+                                        Normal_imin=None, Normal_imax=None,
+                                        Normal_jmin=None, Normal_jmax=None,
+                                        Normal_kmin=None, Normal_kmax=None,
+                                        Lateral_imin=None, Lateral_imax=None,
+                                        Lateral_jmin=None, Lateral_jmax=None,
+                                        Lateral_kmin=None, Lateral_kmax=None,
+                                        ):
+  args = [ Cx, Cy, Cz, Cx_p, Cy_p, Cz_p, Cx_v, Cy_v, Cz_v,
+           Axial_imin, Axial_imax, Axial_jmin, Axial_jmax, Axial_kmin, Axial_kmax,
+           Normal_imin, Normal_imax, Normal_jmin, Normal_jmax, Normal_kmin, Normal_kmax,
+           Lateral_imin, Lateral_imax, Lateral_jmin, Lateral_jmax, Lateral_kmin, Lateral_kmax,
+          ]
+  names = [ "Cx","Cy","Cz","Cx_p","Cy_p","Cz_p","Cx_v","Cy_v","Cz_v",
+            "Axial(imin) - (N)",   "Axial(imax) - (N)",
+            "Axial(jmin) - (N)",   "Axial(jmax) - (N)", 
+            "Axial(kmin) - (N)",   "Axial(kmax) - (N)",
+            "Normal(imin) - (N)",  "Normal(imax) - (N)",
+            "Normal(jmin) - (N)",  "Normal(jmax) - (N)",
+            "Normal(kmin) - (N)",  "Normal(kmax) - (N)",
+            "Lateral(imin) - (N)", "Lateral(imax) - (N)",
+            "Lateral(jmin) - (N)", "Lateral(jmax) - (N)",
+            "Lateral(kmin) - (N)", "Lateral(kmax) - (N)",
+          ]
+  exact_dict = dict(zip(names,args))
+  F = deepcopy(Fin)
+  if len(F['Exact_forces'])>1: # multi-block
+    raise ValueError('Not set up for multiblock yet')
+  
+  for key in exact_dict:
+    key_ = next(iter(F['Exact_forces']))
+    if key in F['Exact_forces'][key_]:
+      if exact_dict[key] is None:
+        exact_dict[key] = F['Exact_forces'][key_][key]
+
+  for key in F:
+    if 'forces' in key:
+      for key_ in F[key]:
+        for var in F[key][key_]:
+          if var in exact_dict:
+            F[key][key_][var] = abs(F[key][key_][var] - exact_dict[var])
+
+  return F
+
+
+
 def parametric_refinement_forces(run_dir,subdir_pattern1="*",subdir_pattern2="*",verbose=True):
   Ftmp = [] # initialize temporary list
   foldernames = []
@@ -576,7 +628,11 @@ if __name__ == "__main__":
   # output_hdf5_dict(F,'test_forces.h5')
   # Z = single_case_forces('/mnt/c/Users/wajordan/Desktop/CASES/ms1_test_09172026_2026-09-17_17.33.51/_ms1_0129x0033',verbose=True)
   # Z = refinement_forces('/mnt/c/Users/wajordan/Desktop/CASES/ms1_test_09172026_2026-09-17_17.33.51',verbose=True)
-  Z = parametric_refinement_forces('/mnt/c/Users/wajordan/Desktop/CASES/',subdir_pattern1="*ms1_test_09172026_2026-09-17*",subdir_pattern2="*")
-  output_hdf5_dict(Z,'test_forces.h5')
+  # Z = parametric_refinement_forces('/mnt/c/Users/wajordan/Desktop/CASES/',subdir_pattern1="*ms1_test_09172026_2026-09-17*",subdir_pattern2="*")
+  # output_hdf5_dict(Z,'test_forces.h5')
+  F = read_hdf5_dict('/mnt/c/Users/wajordan/Downloads/test_forces.h5')
+  F2 = parametric_refinement_force_errors( F, Cx=2.251809148733778e+03, Cy=0.0,
+                                          Cx_p=2.251809148733778e+03, Cy_p=0.0 )
+  output_hdf5_dict(F2,'/mnt/c/Users/wajordan/Downloads/test_force_errors.h5')
   
   

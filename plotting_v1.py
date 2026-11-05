@@ -71,6 +71,215 @@ def plot_ooa_line( N: np.ndarray, DE_slice: np.ndarray, ndim=None, r=2, ax=None,
     ax.plot( N.flatten()**(1./ndim), OOA, **kwargs)
   return ax
 
+def preplot_from_param_refine_F_dict(F_dict,F_key=None,cases=None,levels=None, vars=0, iters=0 ):
+  # preprocessing arguments for plotting force errors or OOA
+  if F_key is None:
+    DE_key_ = ['Primal_forces']
+  else:
+    F_key_ = F_key if isinstance(F_key, list) else [F_key]
+
+  key_ = next(iter(F_dict['Exact_forces']))
+  var  = next(iter(F_dict['Exact_forces'][key_]))
+  n_cases  = F_dict[F_key_[0]][key_][var].shape[0]
+  n_levels = F_dict[F_key_[0]][key_][var].shape[1]
+  n_iters = 1
+  for key in F_key_:
+    for key_ in F_dict[key]:
+      for var in F_dict[key][key_]:
+        n_iters = max( n_iters, F_dict[key][key_][var].shape[2] )
+  if cases is None:
+    cases_ = np.arange(n_cases)
+  else:
+    cases_ = cases if isinstance(cases, list) else [cases]
+
+  if levels is None:
+    levels_ = np.arange(n_levels)
+  else:
+    levels_ = levels if isinstance(levels, list) else [levels]
+  
+  vars_   = vars if isinstance(vars, list) else [vars]
+
+  iters_tmp = []
+  if not isinstance(iters, list): # simplest case, a single scalar input
+    iters_tmp = [[iters] for _ in F_key_]
+  else:
+    if len(iters)!=len(F_key_):
+      raise ValueError(f"number of iteration inputs should be scalar or match the number of F_keys")
+    if not isinstance(iters[0], list): # if it is a single level list
+      iters_tmp = [[iter] for iter in iters]
+    else:
+      if isinstance(iters[0][0],list): # if it is a list of list of lists
+        raise ValueError(f"iteration inputs may be at most doubly nested")
+      iters_tmp = iters # otherwise, should be fine
+  iters_tmp2 = [ np.arange(n_iters) if (-2 in iter) else iter for iter in iters_tmp ]
+
+  iters_ = [ [0] if 'Primal' in key else iters_tmp2[i] for i, key in enumerate(F_key_)]
+
+  return F_key_, cases_, levels_, vars_, iters_
+
+
+def collect_legend_info_forces( F_key, cases, vars, iters, mapping_dict ):
+  # mapping_dict : provides a map for [colors/lines/markers] to data
+  # Example:
+  # mapping_dict  = { "group" : "color",
+  #                   "case"  : "marker",
+  #                   "var"   : "null",
+  #                   "iter"  : "null",
+  #                 }
+  var_text = { "Cx"   : r"$C_x$",
+               "Cy"   : r"$C_y$",
+               "Cz"   : r"$C_z$",
+               "Cx_p" : r"$C_{x_p}$",
+               "Cy_p" : r"$C_{y_p}$",
+               "Cz_p" : r"$C_{z_p}$",
+               "Cx_v" : r"$C_{x_v}$",
+               "Cy_v" : r"$C_{y_v}$",
+               "Cz_v" : r"$C_{z_v}$",
+               }
+  type_info = { "Primal_forces"                  : ["primal error",var_text],
+                "Primal_reconstructed_forces"    : ["primal error (rec.)",var_text],
+                "Corrected_forces"               : ["corr. error",var_text],
+                "Corrected_reconstructed_forces" : ["corr. error (rec.)",var_text],
+                "Exact_forces"                   : ["exact error",var_text],
+                "Exact_reconstructed_forces"     : ["exact error (rec.)",var_text],
+              }
+  colors = ["#1171BE","#DD5400","#EDB120","#8516D1","#3BAA32","#2FBEEF","#D1048B"]
+  markers = ['o', 's', 'd', '^', 'v', '<', '>', '1', '2', '3', '4', 'p', '*', 'h', '+', 'x']
+  lines   = ['-','--','-.',':']
+  alphas = [ np.full_like(iter, 1.,dtype='float') for iter in iters ]
+  for j,a in enumerate(alphas):
+    if a.size > 2:
+      alphas[j][1:-2] = 0.5
+
+  cycle_dict = { "color"     : colors,
+                 "linestyle" : lines,
+                 "marker"    : markers,
+                 "null"      : [None]
+              }
+
+  # invert the mapping_dict
+  # this takes a line style and outputs a the dimension it maps to
+  style_dict = { key: [None] for key in cycle_dict }
+  for key, value in mapping_dict.items():
+    style_dict[value] = key
+
+  # copy mapping_dict to be container for the cycle components
+  map_dict = mapping_dict.copy()
+  
+  labels    = []
+  cyc1 = itertools.cycle(cycle_dict[mapping_dict["group"]])
+  for j,key in enumerate(F_key): # group loop
+    map_dict["group"] = next(cyc1)
+    cyc2 = itertools.cycle(cycle_dict[mapping_dict["case"]])
+    for case_num, _ in enumerate(cases): # case loop
+      map_dict["case"] = next(cyc2)
+      cyc3 = itertools.cycle(cycle_dict[mapping_dict["var"]])
+      for var in vars: # var loop
+        map_dict["var"] = next(cyc3)
+        cyc4 = itertools.cycle(cycle_dict[mapping_dict["iter"]])
+        for i, iter in enumerate(iters[j]): # iter loop
+          map_dict["iter"] = next(cyc4)
+          labels.append({ "key_name"   : key,
+                          "case_num"   : case_num,
+                          "type_name"  : type_info[key][0],
+                          "var_name"   : type_info[key][1][var],
+                          "iteration"  : iter,
+                          "color"      : map_dict[style_dict["color"]],
+                          "marker"     : map_dict[style_dict["marker"]],
+                          "line_style" : map_dict[style_dict["linestyle"]],
+                          "line_alpha" : alphas[j][i]
+                        } )
+  lbls = []
+  if mapping_dict["group"] != "null":
+    cyc1 = itertools.cycle(cycle_dict[mapping_dict["group"]])
+    for j,key in enumerate(F_key): # group loop
+      lbls.append({type_info[key][0] : {mapping_dict["group"]:next(cyc1)} })
+  if mapping_dict["case"] != "null":
+    cyc2 = itertools.cycle(cycle_dict[mapping_dict["case"]])
+    for case_num in cases: # case loop
+      lbls.append({f"case {case_num}" : {mapping_dict["case"]:next(cyc2)} })
+  if mapping_dict["var"] !="null":
+    unique_vars = list(dict.fromkeys(d["var_name"] for d in labels if "var_name" in d))
+    cyc3 = itertools.cycle(cycle_dict[mapping_dict["var"]])
+    for i, var in enumerate(vars): # var loop
+      lbls.append({unique_vars[i] : {mapping_dict["var"]:next(cyc3)} })
+  if mapping_dict["iter"] !="null":
+    cyc4 = itertools.cycle(cycle_dict[mapping_dict["iter"]])
+    for i, iter in enumerate(iters[j]): # iter loop
+      if iter==-1:
+        lbls.append({"last iter" : {mapping_dict["iter"]:next(cyc4)} })
+      else:
+        lbls.append({f"iter {iter}" : {mapping_dict["iter"]:next(cyc4)} })
+  return labels, lbls
+
+def plot_force_ERR_from_param_refine_dict(F_dict,mapping_dict,F_key=None,r=2,ooa=False,ndim=None,cases=None, levels=None, vars=0,iters=0,ax=None,**kwargs):
+  # F_dict: dictionary from the function 'parametric_refinement_force_errors'
+  # mapping_dict: dictionary that specifies what linestyle element applies to which variables
+  # F_key: which field in F_dict will be plotted (defaults to 'Primal_forces')
+  # ndim: number of spatial dimensions for the simulation
+  # cases: which cases to plot (default to all)
+  # levels: which grid levels to plot (default to all)
+  # vars: which variables to plot (default to all)
+  # iters: which iterative corrections to plot (default to last)
+  # n_dim: number of spatial dimensions for the simulation
+  # r: refinement factor; assumed as 2 unless specified
+  # ax: axes object
+  F_key_, cases_, levels_, vars_, iters_ = preplot_from_param_refine_F_dict( 
+                             F_dict,F_key=F_key,cases=cases, levels=levels, vars=vars,iters=iters )
+  labels, lbls = collect_legend_info_forces( F_key_, cases_, vars_, iters_, mapping_dict )
+  # Only single block right now
+  DE = [F_dict[key]['blck 001'] for key in F_key_]
+  N  = np.array(F_dict['N1'])
+  cnt = -1
+  for j,de in enumerate(DE):
+    for case in cases_:
+      for var in vars_:
+        for iter in iters_[j]:
+          cnt += 1
+          if ooa:
+            ax = plot_ooa_line( N, 
+                                de[var][case,levels_,iter], 
+                                r=r, 
+                                ndim=ndim, 
+                                ax=ax, 
+                                color=labels[cnt]["color"], 
+                                marker=labels[cnt]["marker"], 
+                                linestyle=labels[cnt]["line_style"], 
+                                alpha=labels[cnt]["line_alpha"],
+                                **kwargs )
+          else:
+            ax = plot_error_norm_line(N, 
+                                      de[var][case,levels_,iter], 
+                                      ndim=ndim, 
+                                      ax=ax, 
+                                      color=labels[cnt]["color"], 
+                                      marker=labels[cnt]["marker"], 
+                                      linestyle=labels[cnt]["line_style"], 
+                                      alpha=labels[cnt]["line_alpha"],
+                                      **kwargs )
+  
+  for lbl in lbls:
+    for key, value in lbl.items():
+      if "color" in value:
+        ax.plot( np.nan, np.nan, label=key, **value, **kwargs)
+      else:
+        ax.plot( np.nan, np.nan, color="black", label=key, **value, **kwargs)
+  ax.set_xscale('log')
+  ax.set_axisbelow(True)
+  ax.grid(True, which='both', axis='both')
+  ax.grid(which='major', linestyle='-', linewidth=0.8, color='black')
+  ax.grid(which='minor', linestyle=':', linewidth=0.5, color='gray')
+  if ndim is not None:
+    x_label = r"$(n_{cells})^{1/" + f"{ndim}" + r"}$"
+    ax.set_xlabel(fr"{x_label}")
+  else:
+    ax.xlabel(r"n_{cells}")
+  if ooa:
+    ax.set_ylabel('Observed Order of Accuracy')
+  else:
+    ax.set_ylabel('Error')
+    ax.set_yscale('log')
+  return ax, labels
 
 def preplot_from_param_refine_DE_dict(DE_dict,DE_key=None,cases=None, levels=None, vars=0,norms=0,iters=0,layers=0):
   # preprocessing arguments for plotting DE norms or OOA
@@ -332,46 +541,96 @@ def find_unique_subsets(data_list):
             
     return result
 
+# if __name__ == "__main__":
+#   filename ='/mnt/c/Users/wajordan/Downloads/test.h5'
+#   DE_dict = read_hdf5_dict(filename)
+#   DE_key = ['DE_primal_primitive','DE_corrected_primitive']
+#   # DE_key = ['DE_corrected_primitive']
+#   # cases  = [1,5,9,13]
+#   # cases  = [3,7,11,15]
+#   # cases  = [0,4,8]
+#   # cases  = [0,2,4,6] #[i for i in range(4)]
+#   cases  = [0,2,4]
+#   vars   = [0] #[0,1,2,4]
+#   norms  = [1]
+#   iters  = [[0],[0,10,200]]
+#   # iters  = [[0],[200]]
+#   ndim   = 2
+#   markersize = 8
+#   fillstyle='none'
+#   # mapping_dict  = { "group" : "color",
+#   #                   "case"  : "null",
+#   #                   "var"   : "null",
+#   #                   "norm"  : "linestyle",
+#   #                   "layer" : "null",
+#   #                   "iter"  : "marker",
+#   #                 }
+#   mapping_dict  = { "group" : "color",
+#                     "case"  : "marker",
+#                     "var"   : "null",
+#                     "norm"  : "null",
+#                     "layer" : "null",
+#                     "iter"  : "linestyle",
+#                     }
+#   fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(7.5, 5.5))
+
+#   for i,ooa in enumerate([False,True]):
+#     axs[i], labels = plot_ERR_from_param_refine_dict( DE_dict,
+#                                               mapping_dict,
+#                                               DE_key=DE_key,
+#                                               cases=cases,
+#                                               vars=vars,
+#                                               norms=norms,
+#                                               iters=iters,
+#                                               ndim=ndim,
+#                                               markersize=markersize,
+#                                               fillstyle=fillstyle,
+#                                               ooa=ooa,
+#                                               ax=axs[i] )
+#   axs[0].set_xlim(10,1000)
+#   axs[1].set_xlim(10,1000)
+
+#   start_exp = -11
+#   end_exp   = -2
+#   start_order = 0
+#   end_order   = 6
+#   ylimits = 10.**np.array([start_exp,end_exp])
+#   axs[0].set_ylim(ylimits)
+#   axs[0].yaxis.set_minor_formatter(ticker.NullFormatter())
+#   axs[0].yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=np.linspace(0.,1.,11), numticks=1000))
+#   axs[0].yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=(1.,), numticks=1000))
+
+#   axs[1].set_ylim(start_order,end_order)
+#   axs[1].yaxis.set_minor_formatter(ticker.NullFormatter())
+#   axs[1].set_yticks(np.linspace(start_order,end_order,2*(end_order-start_order)+1), minor=True)
+#   axs[1].legend(ncols=2,loc='lower center',framealpha=1.0)
+#   plt.show(block=False)
+#   dumb = 1
+
+
 if __name__ == "__main__":
-  filename ='/mnt/c/Users/wajordan/Downloads/test.h5'
-  DE_dict = read_hdf5_dict(filename)
-  DE_key = ['DE_primal_primitive','DE_corrected_primitive']
-  # DE_key = ['DE_corrected_primitive']
-  # cases  = [1,5,9,13]
-  # cases  = [3,7,11,15]
-  # cases  = [0,4,8]
-  # cases  = [0,2,4,6] #[i for i in range(4)]
-  cases  = [0,2,4]
-  vars   = [0] #[0,1,2,4]
-  norms  = [1]
+  filename ='/mnt/c/Users/wajordan/Downloads/test_force_errors.h5'
+  F_dict = read_hdf5_dict(filename)
+  F_key = ['Primal_forces','Corrected_reconstructed_forces']
+  cases  = [15]
+  vars   = ["Cx"]
   iters  = [[0],[0,10,200]]
-  # iters  = [[0],[200]]
   ndim   = 2
   markersize = 8
   fillstyle='none'
-  # mapping_dict  = { "group" : "color",
-  #                   "case"  : "null",
-  #                   "var"   : "null",
-  #                   "norm"  : "linestyle",
-  #                   "layer" : "null",
-  #                   "iter"  : "marker",
-  #                 }
-  mapping_dict  = { "group" : "color",
-                    "case"  : "marker",
-                    "var"   : "null",
-                    "norm"  : "null",
-                    "layer" : "null",
+  mapping_dict  = { "group" : "marker",
+                    "case"  : "null",
+                    "var"   : "color",
                     "iter"  : "linestyle",
                     }
   fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(7.5, 5.5))
 
   for i,ooa in enumerate([False,True]):
-    axs[i], labels = plot_ERR_from_param_refine_dict( DE_dict,
+    axs[i], labels = plot_force_ERR_from_param_refine_dict( F_dict,
                                               mapping_dict,
-                                              DE_key=DE_key,
+                                              F_key=F_key,
                                               cases=cases,
                                               vars=vars,
-                                              norms=norms,
                                               iters=iters,
                                               ndim=ndim,
                                               markersize=markersize,
@@ -397,3 +656,5 @@ if __name__ == "__main__":
   axs[1].legend(ncols=2,loc='lower center',framealpha=1.0)
   plt.show(block=False)
   dumb = 1
+
+  
