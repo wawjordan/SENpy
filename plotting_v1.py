@@ -541,96 +541,46 @@ def find_unique_subsets(data_list):
             
     return result
 
-# if __name__ == "__main__":
-#   filename ='/mnt/c/Users/wajordan/Downloads/test.h5'
-#   DE_dict = read_hdf5_dict(filename)
-#   DE_key = ['DE_primal_primitive','DE_corrected_primitive']
-#   # DE_key = ['DE_corrected_primitive']
-#   # cases  = [1,5,9,13]
-#   # cases  = [3,7,11,15]
-#   # cases  = [0,4,8]
-#   # cases  = [0,2,4,6] #[i for i in range(4)]
-#   cases  = [0,2,4]
-#   vars   = [0] #[0,1,2,4]
-#   norms  = [1]
-#   iters  = [[0],[0,10,200]]
-#   # iters  = [[0],[200]]
-#   ndim   = 2
-#   markersize = 8
-#   fillstyle='none'
-#   # mapping_dict  = { "group" : "color",
-#   #                   "case"  : "null",
-#   #                   "var"   : "null",
-#   #                   "norm"  : "linestyle",
-#   #                   "layer" : "null",
-#   #                   "iter"  : "marker",
-#   #                 }
-#   mapping_dict  = { "group" : "color",
-#                     "case"  : "marker",
-#                     "var"   : "null",
-#                     "norm"  : "null",
-#                     "layer" : "null",
-#                     "iter"  : "linestyle",
-#                     }
-#   fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(7.5, 5.5))
-
-#   for i,ooa in enumerate([False,True]):
-#     axs[i], labels = plot_ERR_from_param_refine_dict( DE_dict,
-#                                               mapping_dict,
-#                                               DE_key=DE_key,
-#                                               cases=cases,
-#                                               vars=vars,
-#                                               norms=norms,
-#                                               iters=iters,
-#                                               ndim=ndim,
-#                                               markersize=markersize,
-#                                               fillstyle=fillstyle,
-#                                               ooa=ooa,
-#                                               ax=axs[i] )
-#   axs[0].set_xlim(10,1000)
-#   axs[1].set_xlim(10,1000)
-
-#   start_exp = -11
-#   end_exp   = -2
-#   start_order = 0
-#   end_order   = 6
-#   ylimits = 10.**np.array([start_exp,end_exp])
-#   axs[0].set_ylim(ylimits)
-#   axs[0].yaxis.set_minor_formatter(ticker.NullFormatter())
-#   axs[0].yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=np.linspace(0.,1.,11), numticks=1000))
-#   axs[0].yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=(1.,), numticks=1000))
-
-#   axs[1].set_ylim(start_order,end_order)
-#   axs[1].yaxis.set_minor_formatter(ticker.NullFormatter())
-#   axs[1].set_yticks(np.linspace(start_order,end_order,2*(end_order-start_order)+1), minor=True)
-#   axs[1].legend(ncols=2,loc='lower center',framealpha=1.0)
-#   plt.show(block=False)
-#   dumb = 1
-
-
 if __name__ == "__main__":
-  filename ='/mnt/c/Users/wajordan/Downloads/test_force_errors.h5'
-  F_dict = read_hdf5_dict(filename)
-  F_key = ['Primal_forces','Corrected_reconstructed_forces']
-  cases  = [15]
-  vars   = ["Cx"]
-  iters  = [[0],[0,10,200]]
+  filename ='/mnt/c/Users/wajordan/Downloads/test.h5'
+  DE_dict = read_hdf5_dict(filename)
+  DE_key = ['DE_primal_primitive','DE_corrected_primitive']
+  # DE_key = ['DE_corrected_primitive']
+  # cases  = [1,5,9,13]
+  # cases  = [3,7,11,15]
+  # cases  = [0,4,8]
+  # cases  = [0,2,4,6] #[i for i in range(4)]
+  cases  = [0,2,4]
+  vars   = [0,1,2,4]
+  norms  = [2]
+  # iters  = [[0],[0,10,200]]
+  iters  = [[0],[0]]
   ndim   = 2
   markersize = 8
   fillstyle='none'
-  mapping_dict  = { "group" : "marker",
-                    "case"  : "null",
+  # mapping_dict  = { "group" : "color",
+  #                   "case"  : "null",
+  #                   "var"   : "null",
+  #                   "norm"  : "linestyle",
+  #                   "layer" : "null",
+  #                   "iter"  : "marker",
+  #                 }
+  mapping_dict  = { "group" : "null",
+                    "case"  : "marker",
                     "var"   : "color",
+                    "norm"  : "null",
+                    "layer" : "null",
                     "iter"  : "linestyle",
                     }
   fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(7.5, 5.5))
 
   for i,ooa in enumerate([False,True]):
-    axs[i], labels = plot_force_ERR_from_param_refine_dict( F_dict,
+    axs[i], labels = plot_ERR_from_param_refine_dict( DE_dict,
                                               mapping_dict,
-                                              F_key=F_key,
+                                              DE_key=DE_key,
                                               cases=cases,
                                               vars=vars,
+                                              norms=norms,
                                               iters=iters,
                                               ndim=ndim,
                                               markersize=markersize,
@@ -656,5 +606,59 @@ if __name__ == "__main__":
   axs[1].legend(ncols=2,loc='lower center',framealpha=1.0)
   plt.show(block=False)
   dumb = 1
+
+
+
+
+# if __name__ == "__main__":
+#   # filename ='/mnt/c/Users/wajordan/Downloads/test_force_errors.h5'
+#   filename ='/mnt/c/Users/wajordan/Downloads/test_force_errors_h.h5'
+#   F_dict = read_hdf5_dict(filename)
+#   F_key = ['Primal_forces','Corrected_reconstructed_forces']
+#   cases  = 5 #[i for i in range(0,8,2)]
+#   vars   = ["Cx"]
+#   iters  = [[0],[i for i in range(0,201,20)]]
+#   # iters  = [[0],[0,200]]
+#   ndim   = 2
+#   markersize = 8
+#   fillstyle='none'
+#   mapping_dict  = { "group" : "marker",
+#                     "case"  : "linestyle",
+#                     "var"   : "null",
+#                     "iter"  : "color",
+#                     }
+#   fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(7.5, 5.5))
+
+#   for i,ooa in enumerate([False,True]):
+#     axs[i], labels = plot_force_ERR_from_param_refine_dict( F_dict,
+#                                               mapping_dict,
+#                                               F_key=F_key,
+#                                               cases=cases,
+#                                               vars=vars,
+#                                               iters=iters,
+#                                               ndim=ndim,
+#                                               markersize=markersize,
+#                                               fillstyle=fillstyle,
+#                                               ooa=ooa,
+#                                               ax=axs[i] )
+#   axs[0].set_xlim(10,1000)
+#   axs[1].set_xlim(10,1000)
+
+#   start_exp = -6
+#   end_exp   = 1
+#   start_order = 0
+#   end_order   = 6
+#   ylimits = 10.**np.array([start_exp,end_exp])
+#   axs[0].set_ylim(ylimits)
+#   axs[0].yaxis.set_minor_formatter(ticker.NullFormatter())
+#   axs[0].yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=np.linspace(0.,1.,11), numticks=1000))
+#   axs[0].yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=(1.,), numticks=1000))
+
+#   axs[1].set_ylim(start_order,end_order)
+#   axs[1].yaxis.set_minor_formatter(ticker.NullFormatter())
+#   axs[1].set_yticks(np.linspace(start_order,end_order,2*(end_order-start_order)+1), minor=True)
+#   axs[1].legend(ncols=2,loc='lower center',framealpha=1.0)
+#   plt.show(block=True)
+#   dumb = 1
 
   

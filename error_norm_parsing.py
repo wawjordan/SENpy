@@ -631,8 +631,11 @@ if __name__ == "__main__":
   # Z = parametric_refinement_forces('/mnt/c/Users/wajordan/Desktop/CASES/',subdir_pattern1="*ms1_test_09172026_2026-09-17*",subdir_pattern2="*")
   # output_hdf5_dict(Z,'test_forces.h5')
   F = read_hdf5_dict('/mnt/c/Users/wajordan/Downloads/test_forces.h5')
-  F2 = parametric_refinement_force_errors( F, Cx=2.251809148733778e+03, Cy=0.0,
-                                          Cx_p=2.251809148733778e+03, Cy_p=0.0 )
-  output_hdf5_dict(F2,'/mnt/c/Users/wajordan/Downloads/test_force_errors.h5')
+  # F2 = parametric_refinement_force_errors( F, Cx=2.251809148733778e+03, Cy=0.0,
+  #                                         Cx_p=2.251809148733778e+03, Cy_p=0.0 )
+  # output_hdf5_dict(F2,'/mnt/c/Users/wajordan/Downloads/test_force_errors.h5')
+  F2 = parametric_refinement_force_errors( F, Cx=2.251824974195725e+03, Cy=0.0,
+                                            Cx_p=2.251824974195725e+03, Cy_p=0.0 )
+  output_hdf5_dict(F2,'/mnt/c/Users/wajordan/Downloads/test_force_errors_h.h5')
   
   
