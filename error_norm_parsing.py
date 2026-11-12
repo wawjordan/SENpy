@@ -526,8 +526,8 @@ def single_case_forces(run_dir,verbose=False):
                   "Primal_reconstructed_forces"    : ["-primal_rec-force_history.dat",],
                   "Corrected_forces"               : ["-ic-force_history.dat",
                                                       "-ete-force_history.dat",],
-                  "Corrected_reconstructed_forces" : ["-ic-force_history.dat",
-                                                      "-ic_rec-force_history.dat",],
+                  "Corrected_reconstructed_forces" : ["-ic_rec-force_history.dat",
+                                                      "-ete_rec-force_history.dat",],
                 } 
   run_dir = Path(run_dir)
 
