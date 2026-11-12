@@ -184,7 +184,7 @@ def create_case_dirs_4_param(src_dir,src_file,dir=Path.cwd(),base_name="case",fo
         if str_ in str(item):
           file.write(f"{item}\n")
 
-def generate_namelist_vals(src_namelist,**kwargs):
+def generate_namelist_vals(src_namelist,key_file=None,base_name="case",**kwargs):
   import itertools
   from copy import deepcopy
   # list of lists:
@@ -200,6 +200,16 @@ def generate_namelist_vals(src_namelist,**kwargs):
   keys     = list(replacement_dict.keys())
 
   combinations = list(itertools.product(*arg_list))
+
+  if key_file is not None:
+    # write out a key for what parameters correspond to the case number
+    with open(Path(key_file).resolve(),'w',encoding="utf-8") as file:
+      for j, item in enumerate(combinations):
+        name = base_name + "_" + f"{j:03d}"
+        file.write(f"{name}: ")
+        for i, k in enumerate(keys):
+          file.write(f" {k}={namelist_fmt(item[i])},")
+        file.write('\n')
 
   with open(src_namelist,'r') as f:
     base = read_namelist(f.read())
@@ -503,7 +513,14 @@ def read_namelist(text):
       current_key = None # set key to none
   return groups
 
-  
+def namelist_fmt(v):
+    if v is True:  return 'T'
+    if v is False: return 'F'
+    if isinstance(v, (list, tuple)):                 # comma-separated list
+        return ','.join(namelist_fmt(x) for x in v)
+    if isinstance(v, str) and not (v and v[0] in "'\""):
+        return f'"{v}"'                              # auto-quote plain strings
+    return str(v)
 
 def change_namelist_params(src_file,new_file,**kwargs):
   KEY  = r'[A-Za-z][A-Za-z0-9_]*'
@@ -518,15 +535,6 @@ def change_namelist_params(src_file,new_file,**kwargs):
     rf'(?=\s*/|\s*{KEY}\s*=|$)'          # next key, '/', or end of file
   )
 
-  def _fmt(v):
-    if v is True:  return 'T'
-    if v is False: return 'F'
-    if isinstance(v, (list, tuple)):                 # comma-separated list
-        return ','.join(_fmt(x) for x in v)
-    if isinstance(v, str) and not (v and v[0] in "'\""):
-        return f'"{v}"'                              # auto-quote plain strings
-    return str(v)
-
   def substitute(m):
     key = m.group('name').upper()
     if key in replacement_dict:
@@ -536,7 +544,7 @@ def change_namelist_params(src_file,new_file,**kwargs):
       return f"{m.group('name')}={replacement_dict[key]}{trailing}"
     return m.group(0) # leave unmatched entries alone
 
-  replacement_dict = {k.upper(): _fmt(v) for k, v in kwargs.items()}
+  replacement_dict = {k.upper(): namelist_fmt(v) for k, v in kwargs.items()}
 
   filename = Path(src_file)
   newfilename = Path(new_file)
@@ -642,7 +650,7 @@ if __name__ == "__main__":
   #                       time=144.0,
   #                       array_size=1)
 
-  namelist_vals = generate_namelist_vals( src_file,
+  namelist_vals = generate_namelist_vals( src_file, key_file='/home/wajordan/pySENSEI/key.txt',
                                           CONSTANT_DENSITY_MS=('EXACT',[False,True]),
                                           ENFORCE_MMS_CONSTRAINT=('RECONSTRUCTION',[False,True]),
                                           ENFORCE_SLIP_WALL_CONSTRAINT=('RECONSTRUCTION',[False,True]),
