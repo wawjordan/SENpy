@@ -1,4 +1,6 @@
 #!/bin/sh
+# module load Miniconda3/24.7.1-0
+# source activate pydafiV3
 SENpy_location='/home/wajordan/SENpy'
 executable_name='/home/wajordan/SENSEI_DEV/HO-dev/build-release/bin/SENSEI'
 src_nml='/home/wajordan/tmp/sensei.nml'
