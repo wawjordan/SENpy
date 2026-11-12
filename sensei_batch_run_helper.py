@@ -237,6 +237,7 @@ def create_case_dirs( src_dir,
                       namelist_vals,
                       executable_name='echo',
                       job_name='test',
+                      array_throttle=0.5,
                       base_mem_size=1,
                       username=None,
                       dir=Path.cwd(),
@@ -246,6 +247,8 @@ def create_case_dirs( src_dir,
   # namelist_vals is a list of lists of dictionaries       |
   #                           |--> these contain each case |
   out_file = Path(out_file_name)
+
+  if array_throttle > 1.0: array_throttle = 1.0
 
   # create the file that will accumulate the case directories
   with open(out_file, "w", encoding="utf-8") as file:
@@ -317,7 +320,7 @@ def create_case_dirs( src_dir,
                         job_name=job_name,
                         mem=f"{base_mem_size*2**i:d}G",
                         array_size=cnt,
-                        array_throttle=-(cnt//-2),
+                        array_throttle=int(np.ceil( array_throttle * cnt)),#-(cnt//-2),
                         user=username,
                         )
     

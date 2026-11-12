@@ -9,6 +9,7 @@ task_list_out=$output_dir'task_list.txt'
 key_file=$output_dir'key_list.txt'
 username='wajordan@vt.edu'
 base_mem_size=1
+array_throttle=0.5
 base_name='case'
 folder_pattern='*'
 
@@ -30,6 +31,7 @@ create_case_dirs( '$src_grids', namelist_vals, \
 executable_name='$executable_name', \
 job_name='$job_name', \
 base_mem_size=$base_mem_size, \
+array_throttle=$array_throttle, \
 username='$username', \
 dir='$output_dir', \
 base_name='$base_name', \
