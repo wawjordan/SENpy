@@ -15,6 +15,71 @@ import numpy as np
 # find . -maxdepth 1 -mindepth 1 -type d -exec touch {}/filename.rst \;
 # find ./*/ -type f -name "*.nml" -delete
 
+ext_dict = {
+  'GRID'       : [".grd",],
+  'BC'         : [".bc",],
+  'NAMELIST'   : [".nml",],
+  'RESTART'    : [".rst",],
+  'SYSTEM'     : [".lhs.dat",
+                  ".rhs.dat",],
+  'ARRAY'      : ["soln_array.dat",],
+  'SOLUTION'   : ["-soln.dat",],
+  'CORRECTED'  : ["-soln_corrected.dat",],
+  'EXACT'      : ["solnexact.dat",
+                  "mms.config",],
+  'DE'         : ["-soln-de.dat",
+                  "-soln-de-err.dat",
+                  "-DE-primitive_TEST.dat",
+                  "deexact.dat",
+                  "de_estexact.dat",
+                  "corrected_deexact.dat",],
+  'TE'         : [".te-ex.dat",
+                  ".te-est.dat",
+                  ".te-err.dat",],
+  'TURB'       : ["-turb.dat",],
+  'FORCES'     : ["-press_force.dat",
+                  "-press_force_curv.dat",
+                  "-press_force_rec.dat",
+                  "-press_force_curv_rec.dat",
+                  "-visc_force.dat",
+                  "-visc_force_curv.dat",
+                  "-visc_force_rec.dat",
+                  "-visc_force_curv_rec.dat",],
+  'FORCE_HIST' : ["-force_history.dat",],
+  'SURFACE'    : ["-surface_forces.dat",],
+  'ERROR_NORM' : ["-rec-err_primitive.dat",
+                  "-te_ext.dat",
+                  "-te_est.dat",
+                  "-te_err.dat",
+                  "-de_primal_primitive_offset.dat",
+                  "-de_primal_primitive.dat",
+                  "-de_primal_primitive_1.dat",
+                  "-de_primal_primitive_flagged.dat",
+                  "-de_primal_conserved_offset.dat",
+                  "-de_primal_conserved.dat",
+                  "-de_primal_conserved_1.dat",
+                  "-de_primal_conserved_flagged.dat",
+                  "-de_corrected_primitive_ic_offset.dat",
+                  "-de_corrected_primitive_ic.dat",
+                  "-de_corrected_primitive_offset.dat",
+                  "-de_corrected_primitive.dat",
+                  "-de_corrected_primitive_1.dat",
+                  "-de_corrected_primitive_flagged.dat",
+                  "-de_corrected_conserved_ic_offset.dat",
+                  "-de_corrected_conserved_ic.dat",
+                  "-de_corrected_conserved_offset.dat",
+                  "-de_corrected_conserved.dat",
+                  "-de_corrected_conserved_1.dat",
+                  "-de_corrected_conserved_flagged.dat",],
+  'RESIDUALS'  : [".primal.residual_history.dat",
+                  "RESIDUAL_HISTORY.dat"
+                  "RESIDUAL_HISTORY.dat.backup.tar"],
+  'TIMING'     : ["timing.txt",
+                  "pid.txt"],
+  'HDF5'       : [".h5",
+                  ".hdf5"],
+}
+
 def output_hdf5_dict(dic,filename):
   import h5py
   with h5py.File(Path(filename).resolve(), "w") as f:
@@ -291,6 +356,73 @@ def read_err_norms_ic_offset(text_lines):
         dat[:,i,j,k] = np.array([float(item) for item in text_lines[cnt]]) # eqns
   return dat, N, t, N_iterations, N_layers
 
+def compress_case_data( run_dir,
+                        out_file,
+                        append=False,
+                        save_grid=False,
+                        save_bc=True,
+                        save_namelist=True,
+                        save_restart=False,
+                        save_system=False,
+                        save_soln_array=False,
+                        save_solution=False,
+                        save_corrected=False,
+                        save_exact=False,
+                        save_de=False,
+                        save_te=False,
+                        save_turb=False,
+                        save_forces=True,
+                        save_force_history=True,
+                        save_surface_forces=True,
+                        save_error_norms=True,
+                        save_residuals=True,
+                        save_timing=True,
+                        save_logs=True,
+                        save_h5=True,
+                        save_all=False,
+                        verbose=False,
+                        ):
+  import zipfile
+  input_dict = {'GRID':save_grid,
+                'BC':save_bc,
+                'NAMELIST':save_namelist,
+                'RESTART':save_restart,
+                'SYSTEM':save_system,
+                'ARRAY':save_soln_array,
+                'SOLUTION':save_solution,
+                'CORRECTED':save_corrected,
+                'EXACT':save_exact,
+                'DE':save_de,
+                'TE':save_te,
+                'TURB':save_turb,
+                'FORCES':save_forces,
+                'FORCE_HIST':save_force_history,
+                'SURFACE':save_surface_forces,
+                'ERROR_NORM':save_error_norms,
+                'RESIDUALS':save_residuals,
+                'TIMING':save_timing,
+                'HDF5':save_h5,
+                }
+  run_dir = Path(run_dir)
+  def get_arcname(file_path,verbose):
+    if verbose: print(f"Zipping: {file_path}")
+    arcname = file_path.relative_to(file_path.parent.parent)
+    return arcname
+  w = "a" if append else "w"
+  with zipfile.ZipFile(out_file, w, compression=zipfile.ZIP_DEFLATED) as zipf:
+    if save_all:
+      for file_path in run_dir:
+        zipf.write(file_path,arcname=get_arcname(file_path,verbose))
+    else:
+      if save_logs:
+        for file_path in run_dir.glob("log*.txt"):
+          zipf.write(file_path,arcname=get_arcname(file_path,verbose))
+      suffix_list = []
+      for k, v in input_dict.items():
+        if v: suffix_list.extend(ext_dict[k])
+      files = [file_path for file_path in run_dir.iterdir() if file_path.name.endswith(tuple(suffix_list))]
+      for file_path in files:
+        zipf.write(file_path,arcname=get_arcname(file_path,verbose))
 
 def single_case_error_norms(run_dir,
                             verbose=False):
@@ -435,6 +567,18 @@ def single_case_forces(run_dir,
           F[key][zone][var] = np.full_like(F[key1][zone][var], np.nan)
   return F
 
+def refinement_compress_data( run_dir,
+                              out_file,
+                              subdir_pattern="*",
+                              subdir_exclude=[],
+                              verbose=False,
+                              **kwargs ):
+  for subdir in sorted(Path(run_dir).glob(f"{subdir_pattern}")):
+      if any(part in subdir_exclude for part in subdir.parts):
+        continue
+      if subdir.is_dir():
+        compress_case_data(subdir,out_file,append=True,verbose=verbose,**kwargs)
+
 def refinement_error_norms( run_dir, 
                             subdir_pattern="*",
                             subdir_exclude=[],
@@ -519,6 +663,26 @@ def refinement_forces(run_dir,
         # F[key][blk][var] = np.stack([d[key][blk][var] for d in Ftmp])
   F['N1'] = np.array(N1)
   return F
+
+
+def parametric_refinement_compress_data(run_dir,
+                                        out_file,
+                                        subdir_pattern1="*",
+                                        subdir_pattern2="*",
+                                        subdir_exclude1=[],
+                                        subdir_exclude2=[],
+                                        verbose=False,
+                                        **kwargs ):
+  for subdir in sorted(Path(run_dir).glob(f"{subdir_pattern1}")):
+    if any(part in subdir_exclude1 for part in subdir.parts):
+      continue
+    if subdir.is_dir():
+      refinement_compress_data( subdir,
+                                out_file,
+                                subdir_pattern=subdir_pattern2,
+                                subdir_exclude=subdir_exclude2,
+                                verbose=verbose,
+                                **kwargs )
 
 
 def parametric_refinement_error_norms(run_dir,
@@ -651,7 +815,10 @@ def parametric_refinement_force_errors( Fin,
 
 if __name__ == "__main__":
   # Z = single_case_forces('/home/wajordan/pySENSEI/JOUKOWSKY_C_GRID/_kt0129x0033',verbose=True)
-  Z = refinement_error_norms('/home/wajordan/pySENSEI/JOUKOWSKY_C_GRID',subdir_exclude=['_kt0129x0033'],verbose=True)
+  # Z = refinement_error_norms('/home/wajordan/pySENSEI/JOUKOWSKY_C_GRID',subdir_exclude=['_kt0129x0033'],verbose=True)
+  compress_case_data( '/home/wajordan/pySENSEI/JOUKOWSKY_C_GRID/_kt0129x0033',
+                      'test.zip',
+                      verbose=True)
   Z = refinement_forces('/home/wajordan/pySENSEI/JOUKOWSKY_C_GRID',subdir_exclude=['_kt0129x0033'],verbose=True)
   output_hdf5_dict(Z,'test_forces.h5')
   # checking with h5diff
