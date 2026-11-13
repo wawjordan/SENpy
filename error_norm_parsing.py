@@ -508,7 +508,15 @@ def refinement_forces(run_dir,
   for key in Ftmp[0]:
     for blk in Ftmp[0][key]:
       for var in Ftmp[0][key][blk]:
-        F[key][blk][var] = np.stack([d[key][blk][var] for d in Ftmp])
+        arrays = [d[key][blk][var] for d in Ftmp]
+        max_shape = np.max([arr.shape for arr in arrays], axis=0)
+        padded_arrays = []
+        for arr in arrays:
+          pad_width = [(0, max_shape[i] - arr.shape[i]) for i in range(len(max_shape))]
+          padded_arr = np.pad(arr, pad_width, mode='constant', constant_values=np.NaN)
+          padded_arrays.append(padded_arr)
+        F[key][blk][var] = np.stack(padded_arrays,axis=0)
+        # F[key][blk][var] = np.stack([d[key][blk][var] for d in Ftmp])
   F['N1'] = np.array(N1)
   return F
 
