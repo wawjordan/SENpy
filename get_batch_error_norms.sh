@@ -1,4 +1,7 @@
 #!/bin/sh
+# module load Miniconda3/24.7.1-0
+# conda deactivate
+# source activate pydafiV3
 SENpy_location='/home/wajordan/SENpy'
 run_dir='/home/wajordan/SENSEI_CASES/parabola_test_param_sweep'
 subdir_pattern1='*case_*'
