@@ -121,12 +121,15 @@ def convert_dat_files(run_dir,save_backups=True,verbose=False):
       print(f"Deleting: {file_path}")
     file_path.unlink() # delete the file
       
-def convert_dat_files_parametric_study(run_dir,subdir_pattern1="*",save_backups=True,verbose=True):
-  foldernames = []
+def convert_dat_files_parametric_study(run_dir,subdir_pattern1="*",subdir_pattern2='*',save_backups=True,verbose=True):
   for i, subdir in enumerate(sorted(Path(run_dir).glob(f"{subdir_pattern1}"))):
     if verbose:
       print(f"{subdir}")
-    convert_dat_files(subdir,save_backups=save_backups,verbose=verbose)
+    for subsubdir in sorted(Path(subdir).glob(f"{subdir_pattern2}")):
+      if subsubdir.is_dir():
+        if verbose:
+          print(f"{subsubdir}")
+        convert_dat_files(subsubdir,save_backups=save_backups,verbose=verbose)
 
 
 def get_meta_data_path(executable_path):
