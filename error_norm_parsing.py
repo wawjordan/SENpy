@@ -467,7 +467,15 @@ def refinement_error_norms( run_dir,
   # make a new dictionary, stacking all of the error norms for each error type
   DE = dict.fromkeys([key for key in error_norms[0]])
   for key in error_norms[0]:
-    DE[key] = np.stack([d[key]["E"] for d in error_norms])
+    arrays = [d[key]["E"] for d in error_norms]
+    max_shape = np.max([arr.shape for arr in arrays], axis=0)
+    padded_arrays = []
+    for arr in arrays:
+      pad_width = [(0, max_shape[i] - arr.shape[i]) for i in range(len(max_shape))]
+      padded_arr = np.pad(arr, pad_width, mode='constant', constant_values=np.NaN)
+      padded_arrays.append(padded_arr)
+    DE[key] = np.stack(padded_arrays,axis=0)
+    # DE[key] = np.stack([d[key]["E"] for d in error_norms])
 
   DE["N1"] = np.array([d[special_key]["N"] for d in error_norms])
   DE["N_iterations"] = np.array([d[special_key]["N_iterations"] for d in error_norms])
@@ -635,6 +643,7 @@ def parametric_refinement_force_errors( Fin,
 
 if __name__ == "__main__":
   # Z = single_case_forces('/home/wajordan/pySENSEI/JOUKOWSKY_C_GRID/_kt0129x0033',verbose=True)
+  Z = refinement_error_norms('/home/wajordan/pySENSEI/JOUKOWSKY_C_GRID',subdir_exclude=['_kt0129x0033'],verbose=True)
   Z = refinement_forces('/home/wajordan/pySENSEI/JOUKOWSKY_C_GRID',subdir_exclude=['_kt0129x0033'],verbose=True)
   output_hdf5_dict(Z,'test_forces.h5')
   # checking with h5diff
