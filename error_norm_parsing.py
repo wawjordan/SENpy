@@ -673,6 +673,7 @@ def refinement_forces(run_dir,
 
 def parametric_refinement_compress_data(run_dir,
                                         out_file,
+                                        extra_files=[],
                                         rel_dir=None,
                                         subdir_pattern1="*",
                                         subdir_pattern2="*",
@@ -680,6 +681,13 @@ def parametric_refinement_compress_data(run_dir,
                                         subdir_exclude2=[],
                                         verbose=False,
                                         **kwargs ):
+  import zipfile
+  if len(extra_files)>0:
+    with zipfile.ZipFile(out_file, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+      for file in extra_files:
+        file_path = Path(file).resolve()
+        if verbose: print(f"Zipping: {file_path}")
+        zipf.write(file_path,arcname = file_path.name)
   for subdir in sorted(Path(run_dir).glob(f"{subdir_pattern1}")):
     if any(part in subdir_exclude1 for part in subdir.parts):
       continue
