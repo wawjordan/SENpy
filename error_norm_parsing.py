@@ -358,6 +358,7 @@ def read_err_norms_ic_offset(text_lines):
 
 def compress_case_data( run_dir,
                         out_file,
+                        rel_dir=None,
                         append=False,
                         save_grid=False,
                         save_bc=True,
@@ -404,25 +405,29 @@ def compress_case_data( run_dir,
                 'HDF5':save_h5,
                 }
   run_dir = Path(run_dir)
-  def get_arcname(file_path,verbose):
+  if rel_dir is None:
+    rel_dir = run_dir.parent.parent.parent
+  else:
+    rel_dir = Path(rel_dir)
+  def get_arcname(file_path,rel_dir,verbose):
     if verbose: print(f"Zipping: {file_path}")
-    arcname = file_path.relative_to(file_path.parent.parent)
+    arcname = file_path.relative_to(rel_dir)
     return arcname
   w = "a" if append else "w"
   with zipfile.ZipFile(out_file, w, compression=zipfile.ZIP_DEFLATED) as zipf:
     if save_all:
       for file_path in run_dir:
-        zipf.write(file_path,arcname=get_arcname(file_path,verbose))
+        zipf.write(file_path,arcname=get_arcname(file_path,rel_dir,verbose))
     else:
       if save_logs:
         for file_path in run_dir.glob("log*.txt"):
-          zipf.write(file_path,arcname=get_arcname(file_path,verbose))
+          zipf.write(file_path,arcname=get_arcname(file_path,rel_dir,verbose))
       suffix_list = []
       for k, v in input_dict.items():
         if v: suffix_list.extend(ext_dict[k])
       files = [file_path for file_path in run_dir.iterdir() if file_path.name.endswith(tuple(suffix_list))]
       for file_path in files:
-        zipf.write(file_path,arcname=get_arcname(file_path,verbose))
+        zipf.write(file_path,arcname=get_arcname(file_path,rel_dir,verbose))
 
 def single_case_error_norms(run_dir,
                             verbose=False):
@@ -569,6 +574,7 @@ def single_case_forces(run_dir,
 
 def refinement_compress_data( run_dir,
                               out_file,
+                              rel_dir=None,
                               subdir_pattern="*",
                               subdir_exclude=[],
                               verbose=False,
@@ -577,7 +583,7 @@ def refinement_compress_data( run_dir,
       if any(part in subdir_exclude for part in subdir.parts):
         continue
       if subdir.is_dir():
-        compress_case_data(subdir,out_file,append=True,verbose=verbose,**kwargs)
+        compress_case_data(subdir,out_file,rel_dir=rel_dir,append=True,verbose=verbose,**kwargs)
 
 def refinement_error_norms( run_dir, 
                             subdir_pattern="*",
@@ -667,6 +673,7 @@ def refinement_forces(run_dir,
 
 def parametric_refinement_compress_data(run_dir,
                                         out_file,
+                                        rel_dir=None,
                                         subdir_pattern1="*",
                                         subdir_pattern2="*",
                                         subdir_exclude1=[],
@@ -679,6 +686,7 @@ def parametric_refinement_compress_data(run_dir,
     if subdir.is_dir():
       refinement_compress_data( subdir,
                                 out_file,
+                                rel_dir=rel_dir,
                                 subdir_pattern=subdir_pattern2,
                                 subdir_exclude=subdir_exclude2,
                                 verbose=verbose,
