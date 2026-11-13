@@ -42,5 +42,4 @@ out_file_name='$task_list_out' \
 )"
 
 echo "$my_python_command"
-
-# python -c "$my_python_command"
+python -c "$my_python_command"
