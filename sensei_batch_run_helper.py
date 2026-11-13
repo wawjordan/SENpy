@@ -62,7 +62,7 @@ def convert_dat_files(run_dir,save_backups=True,verbose=False):
                     "-de_corrected_conserved_flagged",
                   )
   dat_file_list = [file_path for file_path in run_dir.glob("*.dat")
-                   if file_path.name.endswith(file_patterns)]
+                   if not file_path.name.endswith(file_patterns)]
 
   # create log file to hold output from tec360 batch.log output files
   log_file = run_dir / "tec360_batch.log"
